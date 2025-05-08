@@ -1,7 +1,3 @@
-Berikut adalah contoh **README** untuk proyek **Video Streaming Client-Server** menggunakan TCP atau UDP. Anda bisa menyesuaikan detail dan instruksi sesuai dengan proyek Anda.
-
----
-
 # Video Streaming Client-Server
 
 Proyek ini adalah aplikasi **video streaming** berbasis **TCP** atau **UDP** yang memungkinkan pengiriman aliran video dan audio secara langsung antara server dan klien. Server menangkap video dari webcam dan mengirimkan aliran video ke klien, sementara klien menerima dan menampilkan video secara real-time.
