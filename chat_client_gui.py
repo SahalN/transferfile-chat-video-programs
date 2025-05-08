@@ -86,6 +86,7 @@ class ChatClientApp:
         self.quit_button = tk.Button(self.chat_frame, text="Keluar", command=self.quit_chat, bg="#f44336", fg="white")
         self.quit_button.pack(side=tk.LEFT, padx=5, pady=(0, 10))
 
+
         self.master.protocol("WM_DELETE_WINDOW", self.on_closing)
 
     def receive(self):
