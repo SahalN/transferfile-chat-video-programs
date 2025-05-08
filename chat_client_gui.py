@@ -5,15 +5,15 @@ from threading import Thread
 import os
 
 BUFSIZ = 1024
-SEPARATOR = "<SEPARATOR>"
 FILE_SERVER_HOST = '127.0.0.1'
 FILE_SERVER_PORT = 5001
+SEPARATOR = "<SEPARATOR>"
 
 class ChatClientApp:
     def __init__(self, master):
         self.master = master
         self.master.title("Login Chat Client")
-        self.master.geometry("400x300")
+        self.master.geometry("800x600")
         self.master.configure(bg="#f0f4f7")
 
         self.username = tk.StringVar()
@@ -32,7 +32,6 @@ class ChatClientApp:
         tk.Button(self.login_frame, text="Login", bg="#0066cc", fg="white", command=self.connect_to_chat).grid(row=2, columnspan=2, pady=20)
 
     def connect_to_chat(self):
-        # Dummy password check (bisa dihubungkan ke database user sebenarnya)
         if self.username.get() and self.password.get():
             try:
                 self.client_socket = socket(AF_INET, SOCK_STREAM)
@@ -52,8 +51,19 @@ class ChatClientApp:
         self.master.geometry("800x600")
         self.master.title(f"Chat Room - {self.username.get()}")
 
+        # Frame Kiri untuk daftar User Online
+        self.user_frame = tk.Frame(self.master, width=200, bg="#d9e5f5")
+        self.user_frame.pack(side=tk.LEFT, fill=tk.Y, padx=(10, 5))
+
+        self.user_list_label = tk.Label(self.user_frame, text="User Online", font=("Arial", 14), bg="#d9e5f5")
+        self.user_list_label.pack(pady=10)
+
+        self.user_listbox = tk.Listbox(self.user_frame, height=20, width=25)
+        self.user_listbox.pack(fill=tk.Y)
+
+        # Frame untuk Chat
         self.chat_frame = tk.Frame(self.master, bg="#e6f2ff")
-        self.chat_frame.pack(expand=True, fill=tk.BOTH)
+        self.chat_frame.pack(expand=True, fill=tk.BOTH, side=tk.LEFT)
 
         self.text_frame = tk.Frame(self.chat_frame)
         self.scrollbar = tk.Scrollbar(self.text_frame)
@@ -73,43 +83,31 @@ class ChatClientApp:
         self.upload_button = tk.Button(self.chat_frame, text="Upload File", command=self.upload_file, bg="#2196F3", fg="white")
         self.upload_button.pack(side=tk.LEFT, padx=5, pady=(0, 10))
 
+        self.quit_button = tk.Button(self.chat_frame, text="Keluar", command=self.quit_chat, bg="#f44336", fg="white")
+        self.quit_button.pack(side=tk.LEFT, padx=5, pady=(0, 10))
+
         self.master.protocol("WM_DELETE_WINDOW", self.on_closing)
 
     def receive(self):
         while True:
             try:
                 msg = self.client_socket.recv(BUFSIZ).decode("utf8")
-                if msg.startswith("[FILE]:"):
-                    filename = msg.replace("[FILE]:", "").strip()
-                    self.msg_list.insert(tk.END, f"[File tersedia: {filename}]")
-                    self.msg_list.insert(tk.END, f"Klik untuk download: {filename}")
-                    self.msg_list.bind('<Double-Button-1>', self.download_file)
+                if msg == "{quit}":
+                    self.client_socket.close()
+                    break
+                elif msg.startswith("[USER ONLINE]:"):
+                    self.update_user_list(msg)
                 else:
                     self.msg_list.insert(tk.END, msg)
             except OSError:
                 break
 
-    def download_file(self, event):
-        selection = self.msg_list.get(tk.ACTIVE)
-        if selection.startswith("Klik untuk download:"):
-            filename = selection.split(":")[1].strip()
-            save_path = filedialog.asksaveasfilename(initialfile=filename)
-            if not save_path:
-                return
-            try:
-                s = socket(AF_INET, SOCK_STREAM)
-                s.connect((FILE_SERVER_HOST, FILE_SERVER_PORT))
-                s.send(f"DOWNLOAD:{filename}".encode())
-                with open(save_path, "wb") as f:
-                    while True:
-                        bytes_read = s.recv(BUFSIZ)
-                        if not bytes_read:
-                            break
-                        f.write(bytes_read)
-                s.close()
-                messagebox.showinfo("Berhasil", f"File {filename} berhasil diunduh.")
-            except Exception as e:
-                messagebox.showerror("Download Gagal", f"Gagal mengunduh file: {e}")
+    def update_user_list(self, msg):
+        # Ambil daftar user online dan tampilkan di Listbox
+        user_list = msg.replace("[USER ONLINE]:", "").strip().split(", ")
+        self.user_listbox.delete(0, tk.END)
+        for user in user_list:
+            self.user_listbox.insert(tk.END, user)
 
     def send(self, event=None):
         msg = self.my_msg.get()
@@ -143,8 +141,13 @@ class ChatClientApp:
                 messagebox.showerror("Upload Gagal", f"Gagal mengirim file: {e}")
 
     def on_closing(self, event=None):
+        self.quit_chat()
+
+    def quit_chat(self):
+        """Dipanggil saat tombol 'Keluar' ditekan."""
         self.my_msg.set("{quit}")
         self.send()
+        self.master.quit()
 
 
 if __name__ == "__main__":
