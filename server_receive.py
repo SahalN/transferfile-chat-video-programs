@@ -1,120 +1,54 @@
-import tkinter as tk
-from socket import AF_INET, socket, SOCK_STREAM
-from threading import Thread
+import socket
+import tqdm
 import os
+from threading import Thread
 
-def receive():
-    while True:
-        try:
-            msg = client_socket.recv(BUFSIZ).decode("utf8")
-            msg_list.insert(tk.END, msg)
-        except OSError:
-            break
+SERVER_HOST = "127.0.0.1"
+SERVER_PORT = 5001
+BUFFER_SIZE = 4096
+SEPARATOR = "<SEPARATOR>"
 
-def send(event=None):
-    msg = my_msg.get()
-    my_msg.set("")
-    client_socket.send(bytes(msg, "utf8"))
-    if msg == "{quit}":
-        client_socket.close()
-        top.quit()
+# Direktori khusus untuk menyimpan file
+SAVE_DIR = "server_uploads"
+os.makedirs(SAVE_DIR, exist_ok=True)
 
-def on_closing(event=None):
-    my_msg.set("{quit}")
-    send()
+# Membuat TCP socket
+server_socket = socket.socket()
+server_socket.bind((SERVER_HOST, SERVER_PORT))
+server_socket.listen(5)
+print(f"[*] Listening as {SERVER_HOST}:{SERVER_PORT}")
 
-def login():
-    global client_socket, BUFSIZ
-    username = entry_username.get()
-    password = entry_password.get()
-
-    if not username or not password:
-        return
+def handle_client(client_socket, address):
+    print(f"[+] {address} connected.")
 
     try:
-        client_socket = socket(AF_INET, SOCK_STREAM)
-        client_socket.connect((entry_host.get(), int(entry_port.get())))
-        BUFSIZ = 1024
-        client_socket.send(bytes(username, "utf8"))
-        Thread(target=receive).start()
-        login_frame.pack_forget()
-        chat_frame.pack()
-        top.title(f"Chat - {username}")
-    except Exception as e:
-        print("Gagal koneksi:", e)
+        # Terima info file
+        received = client_socket.recv(BUFFER_SIZE).decode()
+        filename, filesize = received.split(SEPARATOR)
+        filename = os.path.basename(filename)
+        filesize = int(filesize)
 
-def upload_file():
-    from tkinter import filedialog
-    import socket
+        # Path lengkap ke direktori penyimpanan
+        save_path = os.path.join(SAVE_DIR, f"received_{address[1]}_{filename}")
 
-    filepath = filedialog.askopenfilename()
-    if filepath:
-        SEPARATOR = "<SEPARATOR>"
-        BUFFER_SIZE = 4096
-        filesize = os.path.getsize(filepath)
-
-        s = socket.socket()
-        s.connect(("127.0.0.1", 5001))
-        s.send(f"{filepath}{SEPARATOR}{filesize}".encode())
-
-        with open(filepath, "rb") as f:
+        # Simpan file ke folder
+        progress = tqdm.tqdm(range(filesize), f"Receiving {filename}", unit="B", unit_scale=True)
+        with open(save_path, "wb") as f:
             while True:
-                bytes_read = f.read(BUFFER_SIZE)
+                bytes_read = client_socket.recv(BUFFER_SIZE)
                 if not bytes_read:
                     break
-                s.sendall(bytes_read)
-        s.close()
+                f.write(bytes_read)
+                progress.update(len(bytes_read))
 
-top = tk.Tk()
-top.title("Login ke Chat")
-top.geometry("500x400")
-top.configure(bg="#f0f0f5")
+        print(f"[✓] File dari {address} berhasil disimpan di: {save_path}")
+    except Exception as e:
+        print(f"[ERROR] Gagal menerima dari {address}: {e}")
+    finally:
+        client_socket.close()
 
-# ======= LOGIN FRAME =======
-login_frame = tk.Frame(top, bg="#f0f0f5")
-tk.Label(login_frame, text="HOST:").pack()
-entry_host = tk.Entry(login_frame)
-entry_host.insert(0, "127.0.0.1")
-entry_host.pack()
-
-tk.Label(login_frame, text="PORT:").pack()
-entry_port = tk.Entry(login_frame)
-entry_port.insert(0, "33000")
-entry_port.pack()
-
-tk.Label(login_frame, text="Username:").pack()
-entry_username = tk.Entry(login_frame)
-entry_username.pack()
-
-tk.Label(login_frame, text="Password:").pack()
-entry_password = tk.Entry(login_frame, show="*")
-entry_password.pack()
-
-tk.Button(login_frame, text="Login", command=login, bg="#4CAF50", fg="white").pack(pady=10)
-login_frame.pack(pady=40)
-
-# ======= CHAT FRAME =======
-chat_frame = tk.Frame(top, bg="#ffffff")
-messages_frame = tk.Frame(chat_frame)
-my_msg = tk.StringVar()
-my_msg.set("")
-
-scrollbar = tk.Scrollbar(messages_frame)
-msg_list = tk.Listbox(messages_frame, height=15, width=70, yscrollcommand=scrollbar.set)
-scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
-msg_list.pack(side=tk.LEFT, fill=tk.BOTH)
-msg_list.pack()
-messages_frame.pack()
-
-entry_field = tk.Entry(chat_frame, textvariable=my_msg, width=50)
-entry_field.bind("<Return>", send)
-entry_field.pack()
-
-send_button = tk.Button(chat_frame, text="Kirim", command=send, bg="#2196F3", fg="white")
-send_button.pack(pady=5)
-
-upload_button = tk.Button(chat_frame, text="Upload File", command=upload_file, bg="#FF9800", fg="white")
-upload_button.pack(pady=5)
-
-top.protocol("WM_DELETE_WINDOW", on_closing)
-top.mainloop()
+# Terima koneksi terus-menerus
+while True:
+    client_socket, address = server_socket.accept()
+    thread = Thread(target=handle_client, args=(client_socket, address))
+    thread.start()
