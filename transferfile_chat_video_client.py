@@ -133,9 +133,12 @@ def send_file():
         with open(filepath, "rb") as f:
             file_data = f.read()
         filename = os.path.basename(filepath)
-        data = {"type": "file", "filename": filename, "content": file_data}
-        client_socket.sendall(struct.pack("Q", len(pickle.dumps(data))) + pickle.dumps(data))
+        # Pastikan nama file dan data file dikirim secara benar
+        data = {"type": "file", "filename": filename, "data": file_data}
+        msg_data = pickle.dumps(data)  # Serialisasi data
+        client_socket.sendall(struct.pack("Q", len(msg_data)) + msg_data)  # Kirim panjang dan data
         show_chat({"type": "chat", "from": username, "message": f"📎 Mengirim file: {filename}"})
+
 
 def start_client():
     global client_socket, username

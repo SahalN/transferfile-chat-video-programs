@@ -110,6 +110,7 @@ def update_viewer_count():
     }
     send_to_clients(info)
 
+# Mengubah pengambilan data di server agar menerima file secara lengkap
 def handle_client(conn, addr):
     try:
         name = conn.recv(1024).decode("utf-8")
@@ -123,14 +124,17 @@ def handle_client(conn, addr):
         update_viewer_count()
 
         while True:
-            header = conn.recv(8)
+            header = conn.recv(8)  # Menerima header untuk mengetahui ukuran pesan
             if not header:
                 break
             msg_size = struct.unpack("Q", header)[0]
             data = b""
+
+            # Mengumpulkan seluruh data file yang diterima
             while len(data) < msg_size:
-                data += conn.recv(4096)
-            message = pickle.loads(data)
+                data += conn.recv(4096)  # Terus terima data sampai ukuran file terpenuhi
+
+            message = pickle.loads(data)  # Deserialize data
 
             if message["type"] == "chat":
                 chat_data = {
@@ -145,19 +149,19 @@ def handle_client(conn, addr):
                 message["from"] = name
                 message["viewers"] = len(clients)
                 log_chat(f"{name} mengirim file: {message['filename']}")
+
                 # Simpan file ke server
                 filename = message.get("filename", "unknown_file")
                 filedata = message.get("data")
 
                 # Buat folder jika belum ada
                 os.makedirs("server_downloads", exist_ok=True)
+
+                # Menulis data file ke disk
                 with open(os.path.join("server_downloads", filename), "wb") as f:
-                    f.write(filedata)
+                    f.write(filedata)  # Menulis file yang diterima
 
-                # Logging dan broadcast
                 log_chat(f"{name} mengirim file: {filename}")
-                send_to_clients(message, except_sock=conn)
-
                 send_to_clients(message, except_sock=conn)
 
     finally:
