@@ -139,6 +139,27 @@ def send_file():
         client_socket.sendall(struct.pack("Q", len(msg_data)) + msg_data)  # Kirim panjang dan data
         show_chat({"type": "chat", "from": username, "message": f"📎 Mengirim file: {filename}"})
 
+def show_chat(data):
+    chat_box.config(state=tk.NORMAL)
+
+    if "viewers" in data:
+        viewer_label.config(text=f"👁 {data['viewers']} penonton")
+
+    # Tampilkan isi chat atau info
+    if data["type"] == "chat":
+        chat_box.insert(tk.END, f"{data['from']}: {data['message']}\n")
+    elif data["type"] == "info":
+        chat_box.insert(tk.END, f"[INFO] {data['message']}\n")
+    elif data["type"] == "file":
+        filename = data["filename"]
+        path = os.path.join(DOWNLOAD_DIR, filename)
+        with open(path, "wb") as f:
+            f.write(data["content"])
+        chat_box.insert(tk.END, f"{data.get('from', 'Anonim')} mengirim file: {filename}\n")
+
+    chat_box.yview(tk.END)
+    chat_box.config(state=tk.DISABLED)
+
 
 def start_client():
     global client_socket, username

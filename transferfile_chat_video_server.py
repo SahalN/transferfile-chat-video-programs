@@ -52,6 +52,7 @@ video_frame.pack(side=tk.RIGHT, padx=10, pady=10)
 # Webcam
 cap = cv2.VideoCapture(0)
 
+DOWNLOAD_DIR = "downloads"
 
 # --- Functions ---
 
@@ -154,12 +155,9 @@ def handle_client(conn, addr):
                 filename = message.get("filename", "unknown_file")
                 filedata = message.get("data")
 
-                # Buat folder jika belum ada
-                os.makedirs("server_downloads", exist_ok=True)
-
-                # Menulis data file ke disk
-                with open(os.path.join("server_downloads", filename), "wb") as f:
-                    f.write(filedata)  # Menulis file yang diterima
+                os.makedirs(DOWNLOAD_DIR, exist_ok=True)
+                with open(os.path.join(DOWNLOAD_DIR, filename), "wb") as f:
+                    f.write(filedata)
 
                 log_chat(f"{name} mengirim file: {filename}")
                 send_to_clients(message, except_sock=conn)
